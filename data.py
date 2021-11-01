@@ -20,7 +20,8 @@ class AudioDataset(Dataset):
         )
 
         assert self.frame_rate == target_frame_rate
-        assert self.input.shape == self.target.shape
+        assert self.input.shape[0] == self.target.shape[0]
+        assert self.target.shape[1] == 1
 
         self.segment_length_samples = int(segment_length_seconds * self.frame_rate)
 

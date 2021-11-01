@@ -104,7 +104,7 @@ def mask_search(args):
         model = LstmModel.load_from_checkpoint(ckpt_callback.best_model_path)
 
         meta_logs["compression"].append(model.get_compression())
-        meta_logs["val_loss"].append(ckpt_callback.best_model_score)
+        meta_logs["val_loss"].append(ckpt_callback.best_model_score.item())
 
         model.prune(args.prune_amount)
 

@@ -60,9 +60,9 @@ class LstmModel(pl.LightningModule):
         )
 
     def forward(self, x, hiddens=None):
-        residual = x
+        residual = x[:, :, 0:1]
         x, hiddens = self.rec(x, hiddens)
-        return self.lin(x) + residual, hiddens
+        return self.lin(x) + residual[:, :, 0:1], hiddens
 
     def training_step(self, batch, batch_idx, hiddens):
         warmup_step = hiddens is None
@@ -157,8 +157,8 @@ class LstmModel(pl.LightningModule):
             tanh_gate_idx = hs * 2 + k
             active_sum = self.rec.weight_ih_l0_mask[tanh_gate_idx, :].sum()
             active_sum += self.rec.weight_hh_l0_mask[tanh_gate_idx, :].sum()
-            active_sum += torch.abs(self.rec.bias_ih_l0[tanh_gate_idx, :])
-            active_sum += torch.abs(self.rec.bias_hh_l0[tanh_gate_idx, :])
+            active_sum += torch.abs(self.rec.bias_ih_l0[tanh_gate_idx])
+            active_sum += torch.abs(self.rec.bias_hh_l0[tanh_gate_idx])
 
             if active_sum < 1e-8 or self.lin.weight_mask[0, k] == 0.0:
                 live_nodes.append(k)
@@ -166,7 +166,7 @@ class LstmModel(pl.LightningModule):
         return live_nodes
 
     def get_compression(self):
-        return len(self._get_live_nodes()) / self.hidden_size
+        return len(self._get_live_nodes()) / self.hparams.hidden_size
 
     def compress(self):
         live_nodes = self._get_live_nodes()
