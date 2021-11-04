@@ -150,23 +150,12 @@ class LstmModel(pl.LightningModule):
         )
 
     def _get_live_nodes(self):
-        # todo: check if another pass is necessary to remove nodes that only depend on other dead nodes
-        live_nodes = []
-        hs = self.hparams.hidden_size
-        for k in range(hs):
-            tanh_gate_idx = hs * 2 + k
-            active_sum = self.rec.weight_ih_l0_mask[tanh_gate_idx, :].sum()
-            active_sum += self.rec.weight_hh_l0_mask[tanh_gate_idx, :].sum()
-            active_sum += torch.abs(self.rec.bias_ih_l0[tanh_gate_idx])
-            active_sum += torch.abs(self.rec.bias_hh_l0[tanh_gate_idx])
-
-            if active_sum < 1e-8 or self.lin.weight_mask[0, k] == 0.0:
-                live_nodes.append(k)
-
-        return live_nodes
+        x = torch.rand([1, 2048, self.hparams.input_size]) * 2 - 1
+        _, hiddens = self(x)
+        return torch.nonzero(torch.abs(hiddens[0]) > 1e-6)[:, -1].squeeze().tolist()
 
     def get_compression(self):
-        return len(self._get_live_nodes()) / self.hparams.hidden_size
+        return 1 - len(self._get_live_nodes()) / self.hparams.hidden_size
 
     def compress(self):
         live_nodes = self._get_live_nodes()
@@ -174,7 +163,7 @@ class LstmModel(pl.LightningModule):
         matrix_idx = []
         # 3 for gru, 4 for lstm
         for i in range(4):
-            matrix_idx += [live_nodes[j] + i * self.hidden_size for j in range(new_hs)]
+            matrix_idx += [live_nodes[j] + i * self.hparams.hidden_size for j in range(new_hs)]
 
         for module, name in self.get_parameters_to_prune():
             prune.remove(module, name)
