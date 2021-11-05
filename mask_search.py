@@ -11,6 +11,11 @@ from argparse import ArgumentParser
 
 
 class MaskSearchEarlyStopping(EarlyStopping):
+
+    # Implements the "early-bird ticket" stopping criterion
+    # https://arxiv.org/abs/1909.11957
+    # Stop training once the distance between successive pruning masks falls below some threshold
+
     def __init__(self, pl_module, prune_amount, k_masks=5, **kwargs):
         super().__init__(**kwargs)
         self.k_masks = k_masks
@@ -65,7 +70,7 @@ class MaskSearchEarlyStopping(EarlyStopping):
 
 
 def mask_search(args):
-    basepath = (
+    base_path = (
         f"{args.device_name}-LSTM{args.hidden_size}-prune{int(args.prune_amount * 100)}"
     )
     data = AudioDataModule.from_argparse_args(args)
@@ -74,7 +79,7 @@ def mask_search(args):
     meta_logs = {"compression": [], "val_loss": []}
 
     for i in range(args.prune_iters):
-        dirpath = os.path.join(basepath, str(i))
+        dir_path = os.path.join(base_path, str(i))
 
         ckpt_callback = ModelCheckpoint(monitor='val_loss', save_top_k=1)
         callbacks = [
@@ -92,7 +97,7 @@ def mask_search(args):
 
         # constructing a new trainer resets optimizers and schedulers
         trainer = Trainer(
-            default_root_dir=dirpath,
+            default_root_dir=dir_path,
             enable_progress_bar=False,
             callbacks=callbacks,
             gpus=1,
@@ -108,7 +113,7 @@ def mask_search(args):
 
         model.prune(args.prune_amount)
 
-    with open(os.path.join(basepath, 'meta_logs.json'), 'w') as fp:
+    with open(os.path.join(base_path, 'meta_logs.json'), 'w') as fp:
         json.dump(meta_logs, fp)
 
 
