@@ -163,7 +163,9 @@ class LstmModel(pl.LightningModule):
         matrix_idx = []
         # 3 for gru, 4 for lstm
         for i in range(4):
-            matrix_idx += [live_nodes[j] + i * self.hparams.hidden_size for j in range(new_hs)]
+            matrix_idx += [
+                live_nodes[j] + i * self.hparams.hidden_size for j in range(new_hs)
+            ]
 
         for module, name in self.get_parameters_to_prune():
             prune.remove(module, name)

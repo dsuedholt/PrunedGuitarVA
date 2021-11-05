@@ -81,7 +81,7 @@ def mask_search(args):
     for i in range(args.prune_iters):
         dir_path = os.path.join(base_path, str(i))
 
-        ckpt_callback = ModelCheckpoint(monitor='val_loss', save_top_k=1)
+        ckpt_callback = ModelCheckpoint(monitor="val_loss", save_top_k=1)
         callbacks = [
             ckpt_callback,
             MaskSearchEarlyStopping(
@@ -113,7 +113,7 @@ def mask_search(args):
 
         model.prune(args.prune_amount)
 
-    with open(os.path.join(base_path, 'meta_logs.json'), 'w') as fp:
+    with open(os.path.join(base_path, "meta_logs.json"), "w") as fp:
         json.dump(meta_logs, fp)
 
 

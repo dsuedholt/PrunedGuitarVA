@@ -14,28 +14,35 @@ def compress_and_train(args):
     prune_pct = args.prune_pct
     prune_iter = args.prune_iter
 
-    base_dir = f'{dev}-LSTM{hs}-prune{prune_pct}'
+    base_dir = f"{dev}-LSTM{hs}-prune{prune_pct}"
 
-    run_dir = os.path.join(base_dir, str(prune_iter), 'lightning_logs')
+    run_dir = os.path.join(base_dir, str(prune_iter), "lightning_logs")
     run_dir = os.path.join(run_dir, os.listdir(run_dir)[0])
 
-    ckpt_path = os.path.join(run_dir, 'checkpoints')
+    ckpt_path = os.path.join(run_dir, "checkpoints")
     ckpt_path = os.path.join(ckpt_path, os.listdir(ckpt_path)[0])
 
     data = AudioDataModule.from_argparse_args(args)
 
     callbacks = [
-        ModelCheckpoint(monitor='val_loss', save_top_k=1, save_last=True),
-        EarlyStopping(monitor='val_loss', patience=args.early_stopping_patience)
+        ModelCheckpoint(monitor="val_loss", save_top_k=1, save_last=True),
+        EarlyStopping(monitor="val_loss", patience=args.early_stopping_patience),
     ]
 
-    dir_path = os.path.join(base_dir, str(prune_iter), 'completed')
-    trainer = Trainer(default_root_dir=dir_path, gpus=1, check_val_every_n_epoch=2, enable_progress_bar=False, num_sanity_val_steps=0, callbacks=callbacks)
+    dir_path = os.path.join(base_dir, str(prune_iter), "completed")
+    trainer = Trainer(
+        default_root_dir=dir_path,
+        gpus=1,
+        check_val_every_n_epoch=2,
+        enable_progress_bar=False,
+        num_sanity_val_steps=0,
+        callbacks=callbacks,
+    )
     model = LstmModel.load_from_checkpoint(ckpt_path)
     model.compress()
 
     trainer.fit(model, data)
-    trainer.test(model, data, ckpt_path='best')
+    trainer.test(model, data, ckpt_path="best")
 
 
 if __name__ == "__main__":
