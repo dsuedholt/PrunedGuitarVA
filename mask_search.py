@@ -79,6 +79,10 @@ def mask_search(args):
     base_path = (
         f"{args.device_name}-LSTM{args.hidden_size}-prune{int(args.prune_amount * 100)}"
     )
+
+    if args.fully_train_first:
+        base_path += "-ftf"
+
     data = AudioDataModule.from_argparse_args(args)
     model = LstmModel.from_argparse_args(args)
 
@@ -88,9 +92,12 @@ def mask_search(args):
         dir_path = os.path.join(base_path, str(i))
 
         ckpt_callback = ModelCheckpoint(monitor="val_loss", save_top_k=1)
-        callbacks = [
-            ckpt_callback,
-            MaskSearchEarlyStopping(
+
+        if i == 0 and args.fully_train_first:
+            early_stopping_callback = EarlyStopping(monitor="val_loss", patience=args.early_stopping_patience)
+
+        else:
+            early_stopping_callback = MaskSearchEarlyStopping(
                 model,
                 prune_amount=args.prune_amount,
                 monitor="mask_distance",
@@ -98,7 +105,11 @@ def mask_search(args):
                 stopping_threshold=0.1,
                 mode="min",
                 verbose=True,
-            ),
+            )
+
+        callbacks = [
+            ckpt_callback,
+            early_stopping_callback,
         ]
 
         # constructing a new trainer resets optimizers and schedulers
@@ -106,7 +117,7 @@ def mask_search(args):
             default_root_dir=dir_path,
             enable_progress_bar=False,
             callbacks=callbacks,
-            gpus=1,
+            gpus=args.num_gpus,
             log_every_n_steps=1,
             check_val_every_n_epoch=2,
             num_sanity_val_steps=0,
@@ -130,5 +141,8 @@ if __name__ == "__main__":
 
     parser.add_argument("--prune_iters", type=int, default=15)
     parser.add_argument("--prune_amount", type=float, default=0.3)
+    parser.add_argument("--early_stopping_patience", type=int, default=25)
+    parser.add_argument("--fully_train_first", action="store_true")
+    parser.add_argument("--num_gpus", type=int, default=1)
 
     mask_search(parser.parse_args())
