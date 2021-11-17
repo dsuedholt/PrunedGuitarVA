@@ -16,10 +16,10 @@ class MaskSearchEarlyStopping(EarlyStopping):
     # https://arxiv.org/abs/1909.11957
     # Stop training once the distance between successive pruning masks falls below some threshold
 
-    def __init__(self, pl_module, prune_amount, k_masks=5, **kwargs):
+    def __init__(self, pl_module, prune_amount, k_distances=5, **kwargs):
         super().__init__(**kwargs)
-        self.k_masks = k_masks
-        self.last_masks = []
+        self.k_distances = k_distances
+        self.last_distances = []
         self.prune_amount = prune_amount
 
         self.currently_alive = {}
@@ -28,43 +28,49 @@ class MaskSearchEarlyStopping(EarlyStopping):
                 model.state_dict()[param + "_mask"], as_tuple=True
             )
 
+        self.prev_mask = self._get_pruning_mask(pl_module)
+
     def on_validation_end(self, trainer, pl_module):
         pass
 
-    def on_train_epoch_end(self, trainer, pl_module):
+    def _get_pruning_mask(self, pl_module):
         # save current state
         state_dict = pl_module.state_dict()
 
         # retrieve the mask that would result from pruning the model at the current state
         pl_module.prune(self.prune_amount)
-        curr_mask = {}
+        mask = {}
         for model, param in pl_module.get_parameters_to_prune():
-            curr_mask[(model, param)] = model.state_dict()[param + "_mask"][
+            mask[(model, param)] = model.state_dict()[param + "_mask"][
                 self.currently_alive[(model, param)]
-            ]
-
-        self.last_masks.append(curr_mask)
+            ].cpu()
 
         # undo pruning, we only want the mask
         pl_module.load_state_dict(state_dict)
 
-        distance = 1.0
+        return mask
 
-        # calculate maximal hamming distance between current and previous k masks if applicable
-        if len(self.last_masks) == self.k_masks:
-            distances = []
-            for prev_mask in self.last_masks[:-1]:
-                total_params, total_distance = 0, 0
-                for model, param in pl_module.get_parameters_to_prune():
-                    key = (model, param)
-                    total_distance += torch.abs(prev_mask[key] - curr_mask[key]).sum()
-                    total_params += curr_mask[key].numel()
+    def on_train_epoch_end(self, trainer, pl_module):
 
-                distances.append(total_distance / total_params)
+        curr_mask = self._get_pruning_mask(pl_module)
 
-            distance = max(distances)
-            self.last_masks.pop(0)
+        # calculate maximal hamming distance between current and previous mask
+        total_params, total_distance = 0, 0
+        for model, param in pl_module.get_parameters_to_prune():
+            key = (model, param)
+            total_distance += torch.abs(self.prev_mask[key] - curr_mask[key]).sum()
+            total_params += curr_mask[key].numel()
 
+        self.last_distances.append(total_distance / total_params)
+
+        # stopping criterion is last k mask distances being less than a threshold
+        if len(self.last_distances) == self.k_distances:
+            distance = max(self.last_distances)
+            self.last_distances.pop(0)
+        else:
+            distance = 1.0
+
+        self.prev_mask = curr_mask
         pl_module.log("mask_distance", distance)
         self._run_early_stopping_check(trainer)
 
