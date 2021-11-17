@@ -40,7 +40,7 @@ class LstmModel(pl.LightningModule):
         parser.add_argument("--input_size", type=int, default=1)
         parser.add_argument("--bptt_steps", type=int, default=2048)
         parser.add_argument("--bptt_warmup", type=int, default=1000),
-        parser.add_argument("--learn_rate", type=float, default=5e-3),
+        parser.add_argument("--learn_rate", type=float, default=5e-4),
         parser.add_argument(
             "--pre_emph_coeffs", type=float, nargs=2, default=[-0.85, 1]
         )
