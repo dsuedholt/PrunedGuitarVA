@@ -3,6 +3,7 @@ from models import LstmModel
 from pytorch_lightning import Trainer
 from argparse import ArgumentParser
 from data import AudioDataModule
+from utils import latest_checkpoint_from_folder
 
 from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
@@ -15,12 +16,9 @@ def compress_and_train(args):
     prune_iter = args.prune_iter
 
     base_dir = f"{dev}-LSTM{hs}-prune{prune_pct}"
+    base_dir = os.path.join(base_dir, str(prune_iter))
 
-    run_dir = os.path.join(base_dir, str(prune_iter), "lightning_logs")
-    run_dir = os.path.join(run_dir, os.listdir(run_dir)[0])
-
-    ckpt_path = os.path.join(run_dir, "checkpoints")
-    ckpt_path = os.path.join(ckpt_path, os.listdir(ckpt_path)[0])
+    ckpt_path = latest_checkpoint_from_folder(base_dir)
 
     data = AudioDataModule.from_argparse_args(args)
 
@@ -29,10 +27,10 @@ def compress_and_train(args):
         EarlyStopping(monitor="val_loss", patience=args.early_stopping_patience),
     ]
 
-    dir_path = os.path.join(base_dir, str(prune_iter), "completed")
+    dir_path = os.path.join(base_dir, "completed")
     trainer = Trainer(
         default_root_dir=dir_path,
-        gpus=1,
+        gpus=args.num_gpus,
         check_val_every_n_epoch=2,
         enable_progress_bar=False,
         num_sanity_val_steps=0,
@@ -52,5 +50,6 @@ if __name__ == "__main__":
     parser.add_argument("--prune_iter", type=int, default=0)
     parser.add_argument("--hidden_size", type=int, default=64)
     parser.add_argument("--early_stopping_patience", type=int, default=25)
+    parser.add_argument("--num_gpus", type=int, default=1)
 
     compress_and_train(parser.parse_args())
