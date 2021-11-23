@@ -16,6 +16,8 @@ def compress_and_train(args):
     prune_iter = args.prune_iter
 
     base_dir = f"{dev}-LSTM{hs}-prune{prune_pct}"
+    if args.fully_train_first:
+        base_dir += "-ftf"
     base_dir = os.path.join(base_dir, str(prune_iter))
 
     ckpt_path = latest_checkpoint_from_folder(base_dir)
@@ -51,5 +53,6 @@ if __name__ == "__main__":
     parser.add_argument("--hidden_size", type=int, default=64)
     parser.add_argument("--early_stopping_patience", type=int, default=25)
     parser.add_argument("--num_gpus", type=int, default=1)
+    parser.add_argument("--fully_train_first", action="store_true")
 
     compress_and_train(parser.parse_args())
