@@ -191,3 +191,21 @@ class LstmModel(pl.LightningModule):
         self.lin = nn.Linear(new_hs, 1)
 
         self.load_state_dict(new_state)
+
+    def load_state_dict(self, state_dict: 'OrderedDict[str, Tensor]',
+                        strict: bool = True):
+        if "rec.weight_ih_l0_orig" not in state_dict:
+            # assume we're loading a compressed model, remove pruning from current layers
+            for module, name in self.get_parameters_to_prune():
+                prune.remove(module, name)
+
+            new_hs = state_dict["rec.weight_hh_l0"].shape[1]
+            self.rec = nn.LSTM(
+                input_size=self.hparams.input_size,
+                hidden_size=new_hs,
+                num_layers=1,
+                batch_first=True,
+            )
+            self.lin = nn.Linear(new_hs, 1)
+
+        super().load_state_dict(state_dict, strict)
