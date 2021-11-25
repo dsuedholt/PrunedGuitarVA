@@ -167,28 +167,17 @@ class LstmModel(pl.LightningModule):
                 live_nodes[j] + i * self.hparams.hidden_size for j in range(new_hs)
             ]
 
-        for module, name in self.get_parameters_to_prune():
-            prune.remove(module, name)
-
         old_state = self.state_dict()
         new_state = {
-            "rec.weight_ih_l0": old_state["rec.weight_ih_l0"][matrix_idx],
-            "rec.weight_hh_l0": old_state["rec.weight_hh_l0"][matrix_idx][
+            "rec.weight_ih_l0": old_state["rec.weight_ih_l0_orig"][matrix_idx],
+            "rec.weight_hh_l0": old_state["rec.weight_hh_l0_orig"][matrix_idx][
                 :, live_nodes
             ],
             "rec.bias_ih_l0": old_state["rec.bias_ih_l0"][matrix_idx],
             "rec.bias_hh_l0": old_state["rec.bias_hh_l0"][matrix_idx],
-            "lin.weight": old_state["lin.weight"][:, live_nodes],
+            "lin.weight": old_state["lin.weight_orig"][:, live_nodes],
             "lin.bias": old_state["lin.bias"],
         }
-
-        self.rec = nn.LSTM(
-            input_size=self.hparams.input_size,
-            hidden_size=new_hs,
-            num_layers=1,
-            batch_first=True,
-        )
-        self.lin = nn.Linear(new_hs, 1)
 
         self.load_state_dict(new_state)
 
