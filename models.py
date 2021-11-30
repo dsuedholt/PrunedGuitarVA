@@ -100,20 +100,11 @@ class LstmModel(pl.LightningModule):
 
     def configure_optimizers(self):
         optimizer = optim.Adam(
-            self.parameters(), lr=self.hparams.learn_rate, weight_decay=1e-4
-        )
-
-        scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer, "min", factor=0.5, patience=5, verbose=True
+            self.parameters(), lr=self.hparams.learn_rate
         )
 
         return {
             "optimizer": optimizer,
-            "lr_scheduler": {
-                "scheduler": scheduler,
-                "monitor": "val_loss",
-                "frequency": 2,
-            },
         }
 
     def tbptt_split_batch(self, batch, split_size):

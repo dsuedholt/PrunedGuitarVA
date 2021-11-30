@@ -26,18 +26,18 @@ def compress_and_train(args):
 
     callbacks = [
         ModelCheckpoint(monitor="val_loss", save_top_k=1, save_last=True),
-        EarlyStopping(monitor="val_loss", patience=args.early_stopping_patience),
+        #EarlyStopping(monitor="val_loss", patience=args.early_stopping_patience),
     ]
 
     dir_path = os.path.join(base_dir, "completed")
     trainer = Trainer(
         default_root_dir=dir_path,
         gpus=args.num_gpus,
-        check_val_every_n_epoch=2,
+        check_val_every_n_epoch=5,
         enable_progress_bar=False,
         num_sanity_val_steps=0,
         callbacks=callbacks,
-        max_epochs=500,
+        max_epochs=750,
     )
     model = LstmModel.load_from_checkpoint(ckpt_path)
 

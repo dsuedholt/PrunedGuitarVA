@@ -88,29 +88,30 @@ def mask_search(args):
 
     meta_logs = {"compression": [], "val_loss": []}
 
-    for i in range(args.prune_iters):
+    for i in range(args.prune_iters+1):
         dir_path = os.path.join(base_path, str(i))
 
-        ckpt_callback = ModelCheckpoint(monitor="val_loss", save_top_k=1)
+        ckpt_callback = ModelCheckpoint(monitor="val_loss", save_top_k=2)
 
         if i == 0 and args.fully_train_first:
-            early_stopping_callback = EarlyStopping(monitor="val_loss", patience=args.early_stopping_patience)
+            callbacks = [
+                ckpt_callback,
+            ]
 
         else:
             early_stopping_callback = MaskSearchEarlyStopping(
                 model,
                 prune_amount=args.prune_amount,
                 monitor="mask_distance",
-                patience=10,
+                patience=25,
                 stopping_threshold=0.1,
                 mode="min",
                 verbose=True,
             )
-
-        callbacks = [
-            ckpt_callback,
-            early_stopping_callback,
-        ]
+            callbacks = [
+                ckpt_callback,
+                early_stopping_callback,
+            ]
 
         # constructing a new trainer resets optimizers and schedulers
         trainer = Trainer(
@@ -119,12 +120,18 @@ def mask_search(args):
             callbacks=callbacks,
             gpus=args.num_gpus,
             log_every_n_steps=1,
-            check_val_every_n_epoch=2,
+            check_val_every_n_epoch=4,
+            max_epochs=750,
             num_sanity_val_steps=0,
         )
         trainer.fit(model, data)
+        trainer.validate(model, data)
         model = LstmModel.load_from_checkpoint(ckpt_callback.best_model_path)
+        if i == 0 and args.fully_train_first:
+            trainer.test(model, data)
 
+        print('Compression', model.get_compression())
+        print('Best_Val_Loss', ckpt_callback.best_model_score.item())
         meta_logs["compression"].append(model.get_compression())
         meta_logs["val_loss"].append(ckpt_callback.best_model_score.item())
 
@@ -141,7 +148,7 @@ if __name__ == "__main__":
 
     parser.add_argument("--prune_iters", type=int, default=15)
     parser.add_argument("--prune_amount", type=float, default=0.3)
-    parser.add_argument("--early_stopping_patience", type=int, default=25)
+    parser.add_argument("--early_stopping_patience", type=int, default=15)
     parser.add_argument("--fully_train_first", action="store_true")
     parser.add_argument("--num_gpus", type=int, default=1)
 
